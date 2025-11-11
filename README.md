@@ -434,6 +434,10 @@ Stvaranje novog korisnika koji ima pravo prijave s korisničkim imenom i lozinko
 ```CQL
 CREATE ROLE korisnik WITH LOGIN = true AND PASSWORD = 'lozinka';
 ```
+Stvaranje novog SUPERUSER korisnika 
+```CQL
+CREATE ROLE superkorisnik WITH SUPERUSER = true AND LOGIN = true AND PASSWORD = 'lozinka';
+```
 Dodjela svih dozvola na specifičnom keyspace-u
 ```CQL
 GRANT ALL PERMISSIONS ON KEYSPACE vrabac TO korisnik;
@@ -557,8 +561,10 @@ Summary statistics:
 ```
 
 Nakon što je proces završio, možemo provjeriti jesu li podaci uspješno vraćeni. 
+```CQL
 
 select * from vrabac.users ;
+```
 
 ```CQL
 
@@ -568,11 +574,146 @@ select * from vrabac.users ;
 
 ```
 
+## Podesiva konzisentnost
+Konzistentnost u Cassandri je podesiva. 
 
 
 
-2. nadogradnja i poboljšanje BP, dodjela fizičkog mjesta pohrane (tablespace)
-5. sažimanje BP
-6. stvaranja ispisa sheme i modela/strukture BP
-9. Cluster, replikacija DBMS poslužitelja
-14. Pogledi, triggeri, stored procedure (PL)
+Postavljanje konzistenstnosti na razinu 3 zahtjeva da za izvršavanje upita minimalno tri čvora moraju biti pokretnuta i na mreži. U sljedećim primjerima ručno su ugašena dva čvora od ukupno četiri. 
+```CQL
+CONSISTENCY THREE;
+```
+Rezultat
+```CQL
+SELECT * FROM users;
+NoHostAvailable: ('Unable to complete the operation against any hosts', {<Host: 127.0.0.1:9042 EU>: Unavailable('Error from server: code=1000 [Unavailable exception] message="Cannot achieve consistency level THREE" info={\'consistency\': \'THREE\', \'required_replicas\': 3, \'alive_replicas\': 2}')})
+```
+
+Za konzistentnost QUORUMA, nadpolovični broj čvorova u klasteru moraju biti pokrenuti i na mreži. Odnosno (broj čvorova u klasteru / 2) + 1
+```CQL
+CONSISTENCY QUORUM;
+```
+
+```CQL
+SELECT * FROM users;
+NoHostAvailable: ('Unable to complete the operation against any hosts', {<Host: 127.0.0.1:9042 EU>: Unavailable('Error from server: code=1000 [Unavailable exception] message="Cannot achieve consistency level QUORUM" info={\'consistency\': \'QUORUM\', \'required_replicas\': 3, \'alive_replicas\': 2}')})
+```
+
+Postavljanjem konzistetnosti na drugu razinu zahtjeva da za izvršaanje upita imamo dva pokrenuta čvora, što je slučaj u ovom primjeru i upit se izvšava uspješno. 
+```CQL
+CONSISTENCY TWO;
+```
+```CQL
+Consistency level set to TWO.
+> SELECT * FROM users;
+
+ username | bio                                   | created_at                      | email                      | first_name | full_name | last_name | password_hash | user_id
+----------+---------------------------------------+---------------------------------+----------------------------+------------+-----------+-----------+---------------+--------------------------------------
+ marko123 | Programer iz Rijeke, volim Cassandru. | 2025-11-01 09:00:00.000000+0000 | marko.markovic@example.com |      Marko |      null |  Marković |      $2a$12$L | a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4
+```
+
+
+## Materijalizirani pogledi
+
+U primjeru imamo tablicu *users* i username je particijski ključ, ako želimo dohvatiti red po nekom drugom atributu, na primjer prema email adresi, rezultat će biti greška. 
+```CQL
+SELECT * FROM users where email  = 'marko.markovic@example.com';
+
+InvalidRequest: Error from server: code=2200 [Invalid query] message="Cannot execute this query as it might involve data filtering and thus may have unpredictable performance. If you want to execute this query despite the performance unpredictability, use ALLOW FILTERING"
+```
+Najbolja opcija bi bila stvoriti novu tablicu npr. users_by_email i aplikativno kopirati podatke u novu tablicu, međutim, možemo stvoriti i materijalizirani pogled koji je ekvivalent VIEW-u u relacijskim bazama podataka. Cassandra onda za nas na temelju upita stvara novu tablicu i kopira podatke. 
+```CQL
+CREATE MATERIALIZED VIEW vrabac.users_by_email AS
+SELECT user_id, username, email, first_name, last_name, bio, created_at
+FROM vrabac.users
+WHERE email IS NOT NULL AND username IS NOT NULL
+PRIMARY KEY (email, username);
+```
+
+Upit zatim izvršavamo kao da je normalna tablica i sada možemo pretraživati korisnike i po email adresama. 
+```CQL
+SELECT * FROM vrabac.users_by_email WHERE email = 'marko.markovic@example.com';
+
+ email                      | username | bio                                   | created_at                      | first_name | last_name | user_id
+----------------------------+----------+---------------------------------------+---------------------------------+------------+-----------+--------------------------------------
+ marko.markovic@example.com | marko123 | Programer iz Rijeke, volim Cassandru. | 2025-11-01 09:00:00.000000+0000 |      Marko |  Marković | a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4
+```
+
+## Korisnički definirane funkcije (UDF)
+> [!NOTE]
+> Potrebno u cassandra.yaml konfiguracijskoj datoteci omogućiti 'enable_user_defined_functions: true'
+
+Korisnički definirane funkcije su pisane u Javi i koriste se za manje intervencije. Za ovaj jednostavan primjer, konvertirati će se prezime korisnika u uppercase, što se zapravo može i treba napraviti aplikativno. 
+
+Stvaranje funkcije 'to_upper'
+```CQL
+CREATE OR REPLACE FUNCTION vrabac.to_upper (input text) 
+RETURNS NULL ON NULL INPUT 
+RETURNS text LANGUAGE java AS '  
+return input.toUpperCase(); 
+';
+```
+
+Funkciju zovemo na sljedeći način. tako da u SELECT-u proslijedimo atribut prethono stvorenoj funkciji.
+```CQL
+SELECT 
+username, 
+last_name, 
+vrabac.to_upper(last_name) AS uppercase_name 
+FROM vrabac.users 
+WHERE username = 'marko123';
+```
+Rezultat
+```CQL
+ username | last_name | uppercase_name
+----------+-----------+----------------
+ marko123 |  Marković |       MARKOVIĆ
+```
+
+
+## Korisnički definirani agregati
+
+> [!NOTE]
+> Potrebno u cassandra.yaml konfiguracijskoj datoteci omogućiti 'enable_scripted_user_defined_functions: true' 
+
+Korisnički definirani agregati su pisani u Javi, a u ovom primjeru stvaramo brojač komentara na nekoj objavi. Definiramo funkciju koja će zbrajati polja koja imaju tekst. 
+```CQL
+CREATE OR REPLACE FUNCTION 
+vrabac.count_state_func(state bigint, val text) 
+CALLED ON NULL INPUT 
+RETURNS bigint 
+LANGUAGE java AS '
+long current_count = (state == null) ? 0L : state.longValue();
+if (val != null) { current_count++; } 
+return Long.valueOf(current_count); 
+';
+```
+
+
+Nakon definirane funkcije count_state_func stvaramo agregat i postavljamo inicijalni brojač na nulu. 
+```CQL
+CREATE AGGREGATE IF NOT EXISTS vrabac.zbroji_komentare(text) 
+SFUNC count_state_func 
+STYPE bigint 
+INITCOND 0;
+```
+
+Agregat zatim pozivamo na sljedeći način
+
+```CQL
+SELECT post_id, vrabac.zbroji_komentare(comment_text)  
+FROM vrabac.comments_by_post   
+GROUP BY post_id;
+```
+Rezultat
+```CQL
+ post_id                              | vrabac.zbroji_komentare(comment_text)
+--------------------------------------+---------------------------------------
+ d55460a4-1dea-4dbe-b0ef-b8eef145d419 |                                     1
+
+(1 rows)
+```
+
+
+
+
