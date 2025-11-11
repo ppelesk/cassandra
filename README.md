@@ -468,24 +468,131 @@ DROP ROLE korisnik;
 
 ## Optimizacija baze podataka
 
-Promjena strategije za 'posts_by_user' na STCS - SizeTieredCompactionStrategy
+### STCS - SizeTieredCompactionStrategy
+
+Ova strategija je zadana u Cassandri. Dobra je za scenarije s intenzivnim pisanjem (write-heavy workloads). Spaja više manjih SSTable-ova u jedan veći.
+STCS pokreće kompakciju kada pronađe dovoljan broj SSTable-ova (datoteka s podacima) koji su približno iste veličine. 
+
+```mermaid
+graph TD
+    subgraph "Tier 1 - slična veličina"
+        S1["SSTable 1 (50MB)"]
+        S2["SSTable 2 (52MB)"]
+        S3["SSTable 3 (49MB)"]
+        S4["SSTable 4 (50MB)"]
+    end
+
+    subgraph "Tier 2 - veća veličina"
+        S_Ostali1["SSTable 5 (210MB)"]
+        S_Ostali2["SSTable 6 (190MB)"]
+    end
+    
+    Kompakcija["Kompakcija - spajanje"]
+
+    S1 --> Kompakcija
+    S2 --> Kompakcija
+    S3 --> Kompakcija
+    S4 --> Kompakcija
+    
+    Kompakcija --> S_Novi["Novi SSTable (~201MB)"]
+```
+
 ```CQL
 ALTER TABLE vrabac.users WITH compaction = {
   'class': 'SizeTieredCompactionStrategy',
-  'min_threshold': 2,
-  'max_threshold': 64
+  'min_threshold': 4,
+  'max_threshold': 32
 };
 ```
+> 'min_threshold': 2: Znači da će Cassandra pokrenuti kompakciju čim pronađe barem 4 SSTable-a slične veličine.
+> 'max_threshold': 64: Ograničava broj SSTable-ova koji se mogu spojiti u jednoj operaciji na 64. (Zadano je 32).
 
-Promjena strategije za 'users' na LCS (optimizirano za čitanje) - LeveledCompactionStrategy
+
+
+### LCS - LeveledCompactionStrategy 
+
+Ova strategija je optimizirana za scenarije s intenzivnim čitanjem (read-heavy workloads) jer minimizira broj SSTable-ova koje treba provjeriti prilikom čitanja.
+LCS organizira podatke u "nivoe" (levele). Novi podaci dolaze u Nivo 0 (L0). Kada L0 dosegne određenu veličinu, njegovi SSTable-ovi se spajaju i premještaju u Nivo 1 (L1). Na L1 (i svim višim nivoima), podaci su podijeljeni u SSTable-ove fiksne veličine. Podaci se "promiču" s nižeg na viši nivo, pri čemu se svaki nivo (osim L0) sastoji od SSTable-ova fiksne veličine koji se ne preklapaju.
+
+Prednost kod čitanja, da bi pronašla podatak, Cassandra mora pogledati samo jedan SSTable po nivou (za razliku od STCS-a gdje mora gledati više njih).
+
+```mermaid
+graph TD
+    A["Novi podaci (Memtable)"] --> B["Nivo 0 / L0<br/>SSTable A, B, ..."]
+    
+    subgraph "Nivo 1 - L1"
+        direction LR
+        L1_1["SSTable L1-1 (160MB)"]
+        L1_2["SSTable L1-2 (160MB)"]
+        L1_3["..."]
+    end
+
+    subgraph "Nivo 2 - L2"
+        direction LR
+        L2_1["SSTable L2-1 (160MB)"]
+        L2_2["SSTable L2-2 (160MB)"]
+        L2_3["..."]
+    end
+
+    B -- "Kompakcija L0 -> L1" --> L1_1
+    L1_1 -- "Kompakcija L1 -> L2" --> L2_1
+    L1_2 -- "Kompakcija L1 -> L2" --> L2_2
+```
+
 ```CQL
 ALTER TABLE vrabac.users WITH compaction = {
   'class': 'LeveledCompactionStrategy',
   'sstable_size_in_mb': 160
 };
 ```
+> 'sstable_size_in_mb': 160: Definira da će svaki SSTable na Nivoima 1 i višim biti veličine 160 MB.
 
-Promjena strategije za tablicu s vremenskim serijama na TWCS - TimeWindowCompactionStrategy
+
+
+### TWCS - TimeWindowCompactionStrategy
+
+Ova strategija je specifično dizajnirana za podatke vremenskih serija (time-series data), kao što su logovi, IoT očitanja i slično. 
+
+TWCS grupira SSTable-ove u "vremenske prozore". Kompakcija (koristeći STCS unutar prozora) događa se samo unutar jednog vremenskog prozora. Podaci se nikada ne miješaju (kompaktiraju) između različitih vremenskih prozora.
+
+```mermaid
+graph TB
+    subgraph "Prozor 1 - Ponedjeljak"
+        direction LR
+        P1["SSTable 1 (10:00)"]
+        P2["SSTable 2 (14:00)"]
+        P3["SSTable 3 (18:00)"]
+        P_Komp["Kompakcija"]
+        P1 & P2 & P3 --> P_Komp --> P_Final["Ponedjeljak (1 dan podataka)"]
+    end
+
+    subgraph "Prozor 2 - Utorak"
+        direction LR
+        U1["SSTable 4 (09:00)"]
+        U2["SSTable 5 (15:00)"]
+        U_Komp["Kompakcija"]
+        U1 & U2 --> U_Komp --> U_Final["Utorak (1 dan podataka)"]
+    end
+
+    subgraph "Prozor 3 - Srijeda"
+        direction LR
+        S1["SSTable 6 (11:00)"]
+        S_Final["Srijeda (podaci se skupljaju)"]
+        S1 --> S_Final
+    end
+
+    P_Final -. "Nikad se ne spaja" .- U_Final
+    U_Final -. "Nikad se ne spaja" .- S_Final
+
+    style P_Final fill:#eee,stroke:#333,stroke-width:2px
+    style U_Final fill:#eee,stroke:#333,stroke-width:2px
+    style S_Final fill:#f9f9f9,stroke:#999,stroke-width:1px,stroke-dasharray: 5 5
+```
+
+> 'compaction_window_unit': 'DAYS' i 'compaction_window_size': 1: Ovo definira da je svaki vremenski prozor dug jedan dan. Svi podaci (postovi) napisani u ponedjeljak bit će u jednom prozoru, svi od utorka u drugom, itd.
+
+Prednost je u čitanju. Upiti koji traže podatke unutar jednog dana npr. "svi postovi od jučer" čitaju samo iz SSTable-ova tog dana.
+
 ```CQL
 ALTER TABLE vrabac.posts_by_user WITH compaction = {
 'class': 'TimeWindowCompactionStrategy',
