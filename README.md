@@ -1,13 +1,13 @@
-# Analiza Cassandra DBMS-a s prakitičnim primjerima
+# Analiza Cassandra DBMS-a s praktičnim primjerima
 
 ## Priprema radnog okruženja
-Za ovaj primjer demonstracije i testiranja Cassandra DBMS-a, koristi se Docker Desktop koji je moguće preuzeti sa Docker službenih stranica za Windows, Linux i MacOS operativne sustave. https://docs.docker.com/desktop/ 
+Za ovaj primjer demonstracije i testiranja Cassandra DBMS-a, koristi s Docker Desktop koji je moguće preuzeti sa Docker službenih stranica za Windows, Linux i MacOS operativne sustave. https://docs.docker.com/desktop/ 
 
 Nakon Docker instalacije, potrebno je preuzeti image koji će se koristiti za pokretanje Cassandra čvorova. Cassandra održava službeni Docker image koji se preuzima izvršavanjem naredbe u terminalu
 ```
 docker pull cassandra:latest
 ```
-Prije pokretanja prvog čvora, postavlja se Docker mreža na koju će biti spojeni Cassandra čvorovi. Mrežu nije pootrebno postavljati ako će se koristiti jedan čvor. Naziv mreže je proizvoljan, u primjeru se koristi cassandra-network kao naziv mreže. 
+Prije pokretanja prvog čvora, postavlja se Docker mreža na koju će biti spojeni Cassandra čvorovi. Mrežu nije potrebno postavljati ako će se koristiti jedan čvor. Naziv mreže je proizvoljan, u primjeru se koristi cassandra-network kao naziv mreže. 
 ```
 docker network create cassandra-network
 ```
@@ -148,7 +148,7 @@ authorizer: CassandraAuthorizer
 > [!IMPORTANT]
 > Zadani korisnik je *cassandra*, a lozinka je *cassandra*
 
-#### Omogućvanje audit loga
+#### Omogućavanje audit loga
 
 Za praćenje korisničkih aktivnosti, potrebno je omogućiti bilježenje audit loga. Prvi korak je omogućavanje audit loga izmjenom /etc/cassandra/logback.xml datoteke. Potrebno je pronaći sekciju za audit i ukloniti komentare. 
 
@@ -177,7 +177,7 @@ Za praćenje korisničkih aktivnosti, potrebno je omogućiti bilježenje audit l
   </logger>
 ```
 
-Drugi korak je u cassandra.yaml konfiguraciji omogućiti audit log izmjenom enabled iz false u true i odabrati logger FileAuditLogger. Ovdje je također moguće odabrati što će se bilježiti u audit logu. Praćenje je moguće po keyspacu, korisniku i kategorijama. Kategorije su QUERY, DML, DDL, DCL, OTHER, AUTH, ERROR i PREPARE. Ako se ostavi bez konfiguracije, bilježi se sve. 
+Drugi korak je u cassandra.yaml konfiguraciji omogućiti audit log izmjenom enabled iz false u true i odabrati logger FileAuditLogger. Ovdje je također moguće odabrati što će se bilježiti u audit logu. Praćenje je moguće po keyspaceu, korisniku i kategorijama. Kategorije su QUERY, DML, DDL, DCL, OTHER, AUTH, ERROR i PREPARE. Ako se ostavi bez konfiguracije, bilježi se sve. 
 ```
 # Audit logging - Logs every incoming CQL command request, authentication to a node. See the docs
 # on audit_logging for full details about the various configuration options and production tips.
@@ -574,12 +574,12 @@ select * from vrabac.users ;
 
 ```
 
-## Podesiva konzisentnost
+## Podesiva konzistentnost
 Konzistentnost u Cassandri je podesiva. 
 
 
 
-Postavljanje konzistenstnosti na razinu 3 zahtjeva da za izvršavanje upita minimalno tri čvora moraju biti pokretnuta i na mreži. U sljedećim primjerima ručno su ugašena dva čvora od ukupno četiri. 
+Postavljanje konzistentnosti na razinu 3 zahtjeva da za izvršavanje upita minimalno tri čvora moraju biti pokrenuta i na mreži. U sljedećim primjerima ručno su ugašena dva čvora od ukupno četiri. 
 ```CQL
 CONSISTENCY THREE;
 ```
@@ -589,7 +589,7 @@ SELECT * FROM users;
 NoHostAvailable: ('Unable to complete the operation against any hosts', {<Host: 127.0.0.1:9042 EU>: Unavailable('Error from server: code=1000 [Unavailable exception] message="Cannot achieve consistency level THREE" info={\'consistency\': \'THREE\', \'required_replicas\': 3, \'alive_replicas\': 2}')})
 ```
 
-Za konzistentnost QUORUMA, nadpolovični broj čvorova u klasteru moraju biti pokrenuti i na mreži. Odnosno (broj čvorova u klasteru / 2) + 1
+Za konzistentnost QUORUMA, natpolovični broj čvorova u klasteru moraju biti pokrenuti i na mreži. Odnosno (broj čvorova u klasteru / 2) + 1
 ```CQL
 CONSISTENCY QUORUM;
 ```
@@ -599,7 +599,7 @@ SELECT * FROM users;
 NoHostAvailable: ('Unable to complete the operation against any hosts', {<Host: 127.0.0.1:9042 EU>: Unavailable('Error from server: code=1000 [Unavailable exception] message="Cannot achieve consistency level QUORUM" info={\'consistency\': \'QUORUM\', \'required_replicas\': 3, \'alive_replicas\': 2}')})
 ```
 
-Postavljanjem konzistetnosti na drugu razinu zahtjeva da za izvršaanje upita imamo dva pokrenuta čvora, što je slučaj u ovom primjeru i upit se izvšava uspješno. 
+Postavljanjem konzistentnosti na drugu razinu zahtjeva da za izvršavanje upita imamo dva pokrenuta čvora, što je slučaj u ovom primjeru i upit se izvršava uspješno. 
 ```CQL
 CONSISTENCY TWO;
 ```
@@ -643,7 +643,7 @@ SELECT * FROM vrabac.users_by_email WHERE email = 'marko.markovic@example.com';
 > [!NOTE]
 > Potrebno u cassandra.yaml konfiguracijskoj datoteci omogućiti 'enable_user_defined_functions: true'
 
-Korisnički definirane funkcije su pisane u Javi i koriste se za manje intervencije. Za ovaj jednostavan primjer, konvertirati će se prezime korisnika u uppercase, što se zapravo može i treba napraviti aplikativno. 
+Korisnički definirane funkcije su pisane u Javi i koriste se za manje intervencije. Za ovaj jednostavan primjer, konvertirat će se prezime korisnika u uppercase, što se zapravo može i treba napraviti aplikativno. 
 
 Stvaranje funkcije 'to_upper'
 ```CQL
@@ -654,7 +654,7 @@ return input.toUpperCase();
 ';
 ```
 
-Funkciju zovemo na sljedeći način. tako da u SELECT-u proslijedimo atribut prethono stvorenoj funkciji.
+Funkciju zovemo na sljedeći način. tako da u SELECT-u proslijedimo atribut prethodno stvorenoj funkciji.
 ```CQL
 SELECT 
 username, 
