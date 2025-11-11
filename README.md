@@ -25,7 +25,10 @@ architecture-beta
     group USA[USA podatkovni centar] in cassandra
     service c4(server)[cassandra USA 1] in USA
     c1:L -- R:c2
-    c2:L -- R:c3
+    c2:L -- R:c1
+    c3:T -- B:c2
+    c4:T -- B:c1
+    c4:R -- L:c3
 ```
 
 ### Pokretanje prvog čvora
