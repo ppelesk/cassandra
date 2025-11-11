@@ -365,7 +365,49 @@ VALUES (
 ); 
 ```
 
+Dodavanje komentara na objavu 
+```CQL
+INSERT INTO vrabac.comments_by_post ( post_id, published_at, comment_id, author_id, author_username, author_full_name, comment_text ) VALUES ( 
+d55460a4-1dea-4dbe-b0ef-b8eef145d419, 
+'2025-11-05T10:35:00Z', 
+e1a1b2c3-d4e5-f6a1-b2c3-d4e5f6a1b2c3, b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5, 
+'ivana_k', 
+'Ivana Kovačević', 
+'Super objava! Dobrodošao na platformu!' 
+);
+```
+Pregled svih podataka iz tablice
+```CQL
+SELECT * FROM vrabac.posts_by_user;
+```
 
+Pregled komentara po objavi
+```CQL
+SELECT  comment_text, post_id, author_full_name, author_username FROM comments_by_post WHERE post_id = d55460a4-1dea-4dbe-b0ef-b8eef145d419;
+```
+
+Update postojećeg zapisa
+```CQL
+UPDATE vrabac.posts_by_user
+SET post_text = 'Ispravak: Ovo je moja prva *ažurirana* objava!'
+WHERE user_id = a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4 
+AND post_id = d55460a4-1dea-4dbe-b0ef-b8eef145d419
+AND post_time = '2025-11-05T10:30:00Z';
+```
+Brisanje zapisa
+```CQL
+DELETE FROM vrabac.posts_by_user
+WHERE post_id = d55460a4-1dea-4dbe-b0ef-b8eef145d419
+AND user_id = a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4 
+AND post_time = '2025-11-05T10:30:00Z';
+```
+
+
+
+### Brisanje podataka iz tablice, ali ne i same tablice
+```CQL
+TRUNCATE users; 
+```
 
 
 
@@ -387,30 +429,150 @@ DROP TABLE vrabac.users;
 DROP KEYSPACE vrabac;
 ```
 
+## Korisnici
+Stvaranje novog korisnika koji ima pravo prijave s korisničkim imenom i lozinkom
+```CQL
+CREATE ROLE korisnik WITH LOGIN = true AND PASSWORD = 'lozinka';
+```
+Dodjela svih dozvola na specifičnom keyspace-u
+```CQL
+GRANT ALL PERMISSIONS ON KEYSPACE vrabac TO korisnik;
+```
+Dodjela granuliranih dozvola (samo SELECT na jednoj tablici)
+```CQL
+GRANT SELECT ON TABLE vrabac.users TO korisnik;
+```
+Dodjela više dozvola (SELECT i MODIFY)
+```CQL
+GRANT SELECT, MODIFY ON TABLE vrabac.posts_by_user TO korisnik;
+```
+Opoziv granulirane dozvole
+```CQL
+REVOKE SELECT ON TABLE vrabac.users FROM korisnik;
+```
+Opoziv svih dozvola s keyspace-a
+```CQL
+REVOKE ALL PERMISSIONS ON KEYSPACE vrabac FROM korisnik;
+```
+Brisanje korisnika
+```CQL
+DROP ROLE korisnik;
+```
+
+## Optimizacija baze podataka
+
+Promjena strategije za 'posts_by_user' na STCS - SizeTieredCompactionStrategy
+```CQL
+ALTER TABLE vrabac.users WITH compaction = {
+  'class': 'SizeTieredCompactionStrategy',
+  'min_threshold': 2,
+  'max_threshold': 64
+};
+```
+
+Promjena strategije za 'users' na LCS (optimizirano za čitanje) - LeveledCompactionStrategy
+```CQL
+ALTER TABLE vrabac.users WITH compaction = {
+  'class': 'LeveledCompactionStrategy',
+  'sstable_size_in_mb': 160
+};
+```
+
+Promjena strategije za tablicu s vremenskim serijama na TWCS - TimeWindowCompactionStrategy
+```CQL
+ALTER TABLE vrabac.posts_by_user WITH compaction = {
+'class': 'TimeWindowCompactionStrategy',
+'compaction_window_unit': 'DAYS',
+'compaction_window_size': 1
+}; 
+```
 
 
 
 
 
 
+## Backup 
 
+nodetool snapshot je naredba za izradu snapshota keyspacea. Za bolju organizaciju, dodaje se --tag koji može biti datum ili neki drugi logički identifikator 
+```
+nodetool snapshot --tag vrbacsnapshot vrabac
+```
+Rezultat
+```
+Requested creating snapshot(s) for [vrabac] with snapshot name [vrbacsnapshot] and options {skipFlush=false}
+Snapshot directory: vrbacsnapshot
+```
+Kreirani direktorij treba ručno kopirati na drugu lokaciju, po mogućnosti na drugi poslužitelj u slučaju kvara poslužitelja. 
 
+Za pregled stvorenih snapshotova koristi se: 
+```
+nodetool listsnapshots
+```
+Rezultat
+```
+Snapshot Details: 
+Snapshot name Keyspace name Column family name True size Size on disk Creation time            Expiration time
+vrbacsnapshot vrabac        users              1.45 KiB  6.67 KiB     2025-11-11T18:22:10.361Z     
+```
+Sada možemo izbrisati cijeli keyspace što uključuje sve tablice i podatke. 
+```CQL
+DROP KEYSPACE vrabac;
+```
+Provjerimo postoji li keyspace i dalje: 
+```CQL
+DESCRIBE KEYSPACE vrabac;
+'vrabac' not found in keyspaces
+```
 
+## Restore podataka
 
+Prije oporavka podataka, potrebno je ručno ponovno stvoriti keyspace jer isti je izbrisan sa svih čvorova. Također, unutar snapshot foldera se nalazi schema.cql koji je također potrebno ručno vratiti za svaku tablicu prije oporavka podataka. 
+Nakon vraćanja strukture keyspace i tablica one su sada prazne i potrebno se vratiti podatke iz snapshota. Za oporavak podataka koristi se alat sstableloader. 
 
+```
+sstableloader -u cassandra -pw cassandra -d 172.18.0.3 -- tmp/snapshot/vrabac/users/
+```
+
+Rezultat 
+```
+Established connection to initial hosts
+Opening sstables and calculating sections to stream
+Streaming relevant part of /tmp/snapshot/vrabac/users/nb-1-big-Data.db to [/172.18.0.2:7000, /172.18.0.3:7000, /172.18.0.4:7000, /172.18.0.5:7000]
+progress: [/172.18.0.2:7000]0:1/5 95 % [/172.18.0.3:7000]0:1/5 95 % [/172.18.0.4:7000]0:0/5 0  % [/172.18.0.5:7000]0:1/5 95 % total: 71% 5.657KiB/s (avg: 5.657KiB/s)
+progress: [/172.18.0.2:7000]0:1/5 95 % [/172.18.0.3:7000]0:1/5 95 % [/172.18.0.4:7000]0:0/5 0  % [/172.18.0.5:7000]0:1/5 95 % total: 71% 0.000B/s (avg: 5.655KiB/s)
+progress: [/172.18.0.2:7000]0:2/5 95 % [/172.18.0.3:7000]0:1/5 95 % [/172.18.0.4:7000]0:0/5 0  % [/172.18.0.5:7000]0:1/5 95 % total: 71% 22.917KiB/s (avg: 5.658KiB/s)
+progress: [/172.18.0.2:7000]0:2/5 95 % [/172.18.0.3:7000]0:1/5 95 % [/172.18.0.4:7000]0:0/5 0  % [/172.18.0.5:7000]0:2/5 95 % total: 71% 23.452KiB/s (avg: 5.662KiB/s)
+progress: [/172.18.0.2:7000]0:2/5 95 % [/172.18.0.3:7000]0:2/5 95 % [/172.18.0.4:7000]0:0/5 0  % [/172.18.0.5:7000]0:3/5 97 % total: 72% 135.735KiB/s (avg: 5.711KiB/s)
+. . . 
+
+Summary statistics: 
+   Connections per host    : 1         
+   Total files transferred : 20        
+   Total bytes transferred : 20.914KiB 
+   Total duration          : 2705 ms   
+   Average transfer rate   : 7.730KiB/s
+   Peak transfer rate      : 7.867KiB/s
+
+```
+
+Nakon što je proces završio, možemo provjeriti jesu li podaci uspješno vraćeni. 
+
+select * from vrabac.users ;
+
+```CQL
+
+ username | bio            | created_at                      | email                       | first_name | full_name | last_name | password_hash | user_id
+----------+----------------+---------------------------------+-----------------------------+------------+-----------+-----------+---------------+--------------------------------------
+  ivana_k | 10x developer | 2025-11-02 14:15:00.000000+0000 | ivana.ivanic@example.com |      Ivana |      null |    Ivanić |      $2a$12$L | b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5
+
+```
 
 
 
 
 2. nadogradnja i poboljšanje BP, dodjela fizičkog mjesta pohrane (tablespace)
-4. backup BP (fizički, logički dump) i recovery baze podataka
 5. sažimanje BP
 6. stvaranja ispisa sheme i modela/strukture BP
-8. SnapShot
 9. Cluster, replikacija DBMS poslužitelja
-10. brisanje BP i dijelova
-11. Mogućnosti distribucije sadržaja BP
-12. optimizacija rada BP i DBMS-a
-13. Primjena Codd-ovih pravila na DBMS-u
 14. Pogledi, triggeri, stored procedure (PL)
-15. ograničenja RI unutar scheme i između schema BP
