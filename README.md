@@ -257,6 +257,148 @@ Rezultat
 CREATE KEYSPACE vrabac WITH replication = {'class': 'NetworkTopologyStrategy', 'EU': '3', 'USA': '1'}  AND durable_writes = true;
 ```
 
+## Stvaranje i uređivanje tablica
+Za rad s tablicama, mora se odabrati keyspace u kojem radimo
+```CQL
+USE vrabac;
+```
+
+### Dodavanje tablica
+```CQL
+CREATE TABLE users (
+    username text PRIMARY KEY,
+    user_id uuid,
+    email text,
+    password_hash text,
+    first_name text,
+    last_name text,
+    bio text,
+    created_at timestamp
+);
+
+```
+```CQL
+CREATE TABLE posts_by_user (
+    post_id uuid,
+    post_time timestamp,
+    post_text text,
+    user_id uuid,
+    username text,
+    full_name text,
+    PRIMARY KEY (user_id, post_id, post_time)
+) WITH CLUSTERING ORDER BY (post_id ASC, post_time DESC); 
+
+```
+
+```CQL
+CREATE TABLE comments_by_post (
+    post_id uuid,
+    published_at timestamp,
+    comment_id uuid,
+    author_id uuid,
+    author_username text,
+    author_full_name text,
+    comment_text text,
+    PRIMARY KEY (post_id, published_at, comment_id)
+) WITH CLUSTERING ORDER BY (published_at DESC, comment_id ASC); 
+
+```
+### Dodavanje stupaca u postojeću tablicu
+```CQL
+ALTER TABLE users ADD full_name text;
+```
+
+### Insert podataka 
+Dodajemo dva korisnika. Za user_id možemo koristiti uuid() funkciju umjesto fiksnog uuid-a koji je u primjeru. 
+```CQL
+INSERT INTO vrabac.users (
+    username,
+    user_id,
+    email,
+    password_hash,
+    first_name,
+    last_name,
+    bio,
+    created_at
+) VALUES (
+    'marko123',
+    a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4,
+    'marko.markovic@example.com',
+    '$2a$12$L',
+    'Marko',
+    'Marković',
+    'Programer iz Rijeke, volim Cassandru.',
+    '2025-11-01T09:00:00Z'
+);
+```
+```CQL
+INSERT INTO vrabac.users (
+    username,
+    user_id,
+    email,
+    password_hash,
+    first_name,
+    last_name,
+    bio,
+    created_at
+) VALUES (
+    'ivana_k',
+    b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5,
+    'ivana.kovacevic@example.com',
+    '$2a$12$L',
+    'Ivana',
+    'Ivanić',
+    '10x developer.',
+    '2025-11-02T14:15:00Z'
+);
+```
+Dodajemo jednu objavu
+```CQL
+INSERT INTO vrabac.posts_by_user (user_id, post_time, post_id, post_text, username, full_name)
+VALUES (
+    a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4, 
+    '2025-11-05T10:30:00Z',
+    d55460a4-1dea-4dbe-b0ef-b8eef145d419,
+    'Ovo je moja prva objava na Cassandri!',
+    'marko123',
+    'Marko Marković'
+); 
+```
+
+
+
+
+
+### Brisanje stupaca u tablici
+```CQL
+ALTER TABLE users DROP first_name;
+```
+```CQL
+ALTER TABLE users DROP last_name;
+```
+
+### Brisanje tablice
+```CQL
+DROP TABLE vrabac.users;
+```
+
+### Brisanje keyspace
+```CQL
+DROP KEYSPACE vrabac;
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
