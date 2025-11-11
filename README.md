@@ -215,15 +215,55 @@ ili
 ```
 cqlsh -u cassandra -p cassandra
 ```
+Rezultat uspješne prijave: 
+```CQL
+Connected to CassandraCluster at 127.0.0.1:9042
+[cqlsh 6.2.0 | Cassandra 5.0.6 | CQL spec 3.4.7 | Native protocol v5]
+Use HELP for help.
+cassandra@cqlsh>
+```
+
+Keyspace se stvara na sljedećom naredbom: 
+```CQL
+CREATE KEYSPACE vrabac WITH REPLICATION = { 
+	'class' : 'NetworkTopologyStrategy', 
+	'EU' : 3, 
+	'USA' : 1 
+} AND DURABLE_WRITES = true;
+```
+> [!NOTE]
+> Ako je pokrenut samo jedan čvor, onda je class *SimpleStrategy* i ne definira se faktor replikacije. Faktor replikacije u ovom slučaju 3 nikad ne može biti veći od broja čvorova u podatkovnom centru
+
+Za pregled svih keyspaceva na klasteru: 
+```CQL
+DESCRIBE KEYSPACES;
+```
+
+
+Rezultat
+```CQL
+system       system_distributed  system_traces  system_virtual_schema
+system_auth  system_schema       system_views   vrabac
+```
+
+Za pregled detalja određenog keyspaea: 
+```CQL
+DESCRIBE KEYSPACE vrabac;
+```
+
+Rezultat
+```CQL
+
+CREATE KEYSPACE vrabac WITH replication = {'class': 'NetworkTopologyStrategy', 'EU': '3', 'USA': '1'}  AND durable_writes = true;
+```
+
 
 
 
 2. nadogradnja i poboljšanje BP, dodjela fizičkog mjesta pohrane (tablespace)
-3. autentikacija i autorizacija korisnika (role)
 4. backup BP (fizički, logički dump) i recovery baze podataka
 5. sažimanje BP
 6. stvaranja ispisa sheme i modela/strukture BP
-7. user activity i transakcijski log
 8. SnapShot
 9. Cluster, replikacija DBMS poslužitelja
 10. brisanje BP i dijelova
