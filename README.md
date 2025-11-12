@@ -645,7 +645,7 @@ Prije oporavka podataka, potrebno je ručno ponovno stvoriti keyspace jer isti j
 Nakon vraćanja strukture keyspace i tablica one su sada prazne i potrebno se vratiti podatke iz snapshota. Za oporavak podataka koristi se alat sstableloader. 
 
 ```
-sstableloader -u cassandra -pw cassandra -d 172.18.0.3 -- tmp/snapshot/vrabac/users/
+sstableloader -u cassandra -pw cassandra -d 172.18.0.3 -- /tmp/snapshot/vrabac/users/
 ```
 
 Rezultat 
