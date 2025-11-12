@@ -737,12 +737,13 @@ Postavljanjem konzistentnosti na drugu razinu zahtjeva da za izvršavanje upita 
 CONSISTENCY TWO;
 ```
 ```CQL
-Consistency level set to TWO.
-> SELECT * FROM users;
+SELECT * FROM users;
+```
+```
 
  username | bio                                   | created_at                      | email                      | first_name | full_name | last_name | password_hash | user_id
-----------+---------------------------------------+---------------------------------+----------------------------+------------+-----------+-----------+---------------+--------------------------------------
- marko123 | Programer iz Rijeke, volim Cassandru. | 2025-11-01 09:00:00.000000+0000 | marko.markovic@example.com |      Marko |      null |  Marković |      $2a$12$L | a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4
+----------+---------------------------------------+---------------------------------+-------------------+------------+-----------+-----------+---------------+--------------------------------------
+ marko123 | Programer iz Rijeke, volim Cassandru. | 2025-11-01 09:00:00.000000+0000 | marko@example.com |      Marko |      null |  Marković |      $2a$12$L | a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4
 ```
 
 
@@ -750,7 +751,7 @@ Consistency level set to TWO.
 
 U primjeru imamo tablicu *users* i username je particijski ključ, ako želimo dohvatiti red po nekom drugom atributu, na primjer prema email adresi, rezultat će biti greška. 
 ```CQL
-SELECT * FROM users where email  = 'marko.markovic@example.com';
+SELECT * FROM users where email  = 'marko@example.com';
 
 InvalidRequest: Error from server: code=2200 [Invalid query] message="Cannot execute this query as it might involve data filtering and thus may have unpredictable performance. If you want to execute this query despite the performance unpredictability, use ALLOW FILTERING"
 ```
@@ -794,7 +795,7 @@ username,
 last_name, 
 vrabac.to_upper(last_name) AS uppercase_name 
 FROM vrabac.users 
-WHERE username = 'marko123';
+WHERE username = 'marko';
 ```
 Rezultat
 ```CQL
