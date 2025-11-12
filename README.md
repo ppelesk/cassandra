@@ -289,7 +289,7 @@ CREATE TABLE posts_by_user (
     username text,
     full_name text,
     PRIMARY KEY (user_id, post_id, post_time)
-) WITH CLUSTERING ORDER BY (post_id ASC, post_time DESC); 
+) WITH CLUSTERING ORDER BY (post_id ASC, post_time ASC); 
 
 ```
 
