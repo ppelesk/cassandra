@@ -324,9 +324,9 @@ INSERT INTO vrabac.users (
     bio,
     created_at
 ) VALUES (
-    'marko123',
+    'marko',
     a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4,
-    'marko.markovic@example.com',
+    'marko@example.com',
     '$2a$12$L',
     'Marko',
     'Marković',
@@ -345,13 +345,13 @@ INSERT INTO vrabac.users (
     bio,
     created_at
 ) VALUES (
-    'ivana_k',
+    'ivana',
     b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5,
-    'ivana.kovacevic@example.com',
+    'ivana@example.com',
     '$2a$12$L',
     'Ivana',
     'Ivanić',
-    '10x developer.',
+    '10x developer',
     '2025-11-02T14:15:00Z'
 );
 ```
@@ -363,7 +363,7 @@ VALUES (
     '2025-11-05T10:30:00Z',
     d55460a4-1dea-4dbe-b0ef-b8eef145d419,
     'Ovo je moja prva objava na Cassandri!',
-    'marko123',
+    'marko',
     'Marko Marković'
 ); 
 ```
@@ -374,8 +374,8 @@ INSERT INTO vrabac.comments_by_post ( post_id, published_at, comment_id, author_
 d55460a4-1dea-4dbe-b0ef-b8eef145d419, 
 '2025-11-05T10:35:00Z', 
 e1a1b2c3-d4e5-f6a1-b2c3-d4e5f6a1b2c3, b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5, 
-'ivana_k', 
-'Ivana Kovačević', 
+'ivana', 
+'Ivana Ivanić', 
 'Super objava! Dobrodošao na platformu!' 
 );
 ```
