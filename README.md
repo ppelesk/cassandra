@@ -601,7 +601,22 @@ ALTER TABLE vrabac.posts_by_user WITH compaction = {
 }; 
 ```
 
+## Logički dump podataka u CSV format
 
+Izvoz cijele tablice 'users' u CSV. TO parametar definira putanju odredišta
+```CQL
+cassandra@cqlsh:vrabac> COPY users TO '../vrabac_users.csv' WITH HEADER = TRUE; 
+Using 9 child processes
+
+Starting copy of vrabac.users with columns [username, bio, created_at, email, first_name, full_name, last_name, password_hash, user_id].
+Processed: 2 rows; Rate:       1 rows/s; Avg. rate:       2 rows/s
+2 rows exported to 1 files in 0.830 seconds.
+```
+
+Izvoz određenih stupaca iz tablice 'users'
+```CQL
+COPY users (username, email) TO '../vrabac_users_email.csv' WITH HEADER = TRUE; 
+```
 
 
 
