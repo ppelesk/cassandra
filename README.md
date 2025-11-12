@@ -609,7 +609,6 @@ COPY users TO '../vrabac_users.csv' WITH HEADER = TRUE;
 ```
 Rezultat
 ```CQL
-
 Using 9 child processes
 
 Starting copy of vrabac.users with columns [username, bio, created_at, email, first_name, full_name, last_name, password_hash, user_id].
@@ -620,7 +619,7 @@ Processed: 2 rows; Rate:       1 rows/s; Avg. rate:       2 rows/s
 username,bio,created_at,email,first_name,full_name,last_name,password_hash,user_id
 marko,"Programer iz Rijeke, volim Cassandru.",2025-11-01 09:00:00.000+0000,marko@example.com,Marko,,Marković,$2a$12$L,a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4
 ivana,10x developer,2025-11-02 14:15:00.000+0000,ivana@example.com,Ivana,,Ivanić,$2a$12$L,b1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d5
-
+```
 
 Izvoz određenih stupaca iz tablice 'users'
 ```CQL
