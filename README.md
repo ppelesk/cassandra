@@ -766,7 +766,7 @@ PRIMARY KEY (email, username);
 
 Upit zatim izvršavamo kao da je normalna tablica i sada možemo pretraživati korisnike i po email adresama. 
 ```CQL
-SELECT * FROM vrabac.users_by_email WHERE email = 'marko.markovic@example.com';
+SELECT * FROM vrabac.users_by_email WHERE email = 'marko.@example.com';
 
  email                      | username | bio                                   | created_at                      | first_name | last_name | user_id
 ----------------------------+----------+---------------------------------------+---------------------------------+------------+-----------+--------------------------------------
